@@ -1,6 +1,7 @@
 import streamlit as st
 from services.cargar_archivo import cargar_excel
 from services.indicadores import calcular_kpis
+from dashboards.graficos import grafico_ventas_producto
 
 st.set_page_config(
     page_title="Consultoría BI",
@@ -53,6 +54,11 @@ if archivo is not None:
             "Ticket Promedio",
             f"${kpis['ticket_promedio']:,.0f}"
         )
+
+        # Gráficos
+        st.subheader("Análisis de ventas")
+        figura = grafico_ventas_producto(datos)
+        st.plotly_chart(figura, width='stretch')
 
     else:
 
