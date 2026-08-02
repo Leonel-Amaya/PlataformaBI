@@ -1,5 +1,6 @@
 import streamlit as st
 from services.cargar_archivo import cargar_excel
+from services.indicadores import calcular_kpis
 
 st.set_page_config(
     page_title="Consultoría BI",
@@ -23,11 +24,35 @@ if archivo is not None:
 
     if datos is not None:
 
+        # Tabla vista previa
         st.success("Archivo cargado correctamente")
-
         st.subheader("Vista previa")
-
         st.dataframe(datos)
+
+        # KPIs
+        kpis = calcular_kpis(datos)
+        st.subheader("Indicadores principales")
+        col1, col2, col3, col4 = st.columns(4)
+
+        col1.metric(
+            "Ventas Totales",
+            f"${kpis['ventas_totales']:,.0f}"
+        )
+
+        col2.metric(
+            "Número de Ventas",
+            kpis["numero_ventas"]
+        )
+
+        col3.metric(
+            "Clientes",
+            kpis["clientes_unicos"]
+        )
+
+        col4.metric(
+            "Ticket Promedio",
+            f"${kpis['ticket_promedio']:,.0f}"
+        )
 
     else:
 
