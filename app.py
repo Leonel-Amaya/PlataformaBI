@@ -1,7 +1,7 @@
 import streamlit as st
 from services.cargar_archivo import cargar_excel
 from services.indicadores import calcular_kpis
-from dashboards.graficos import grafico_ventas_producto
+from dashboards.graficos import grafico_ventas_producto, grafico_ventas_fecha
 
 st.set_page_config(
     page_title="Consultoría BI",
@@ -59,6 +59,10 @@ if archivo is not None:
         st.subheader("Análisis de ventas")
         figura = grafico_ventas_producto(datos)
         st.plotly_chart(figura, width='stretch')
+
+        st.subheader("Comportamiento de las ventas")
+        linea = grafico_ventas_fecha(datos)
+        st.plotly_chart(linea, width='stretch')
 
     else:
 
