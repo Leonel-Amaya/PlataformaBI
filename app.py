@@ -2,6 +2,7 @@ import streamlit as st
 from services.cargar_archivo import cargar_excel
 from services.indicadores import calcular_kpis
 from dashboards.graficos import grafico_ventas_producto, grafico_ventas_fecha
+from services.validacion import validar_datos
 
 st.set_page_config(
     page_title="Consultoría BI",
@@ -29,6 +30,45 @@ if archivo is not None:
         st.success("Archivo cargado correctamente")
         st.subheader("Vista previa")
         st.dataframe(datos)
+
+        # Validación
+        validacion = validar_datos(datos)
+        st.subheader("Calidad de los datos")
+
+        nulos = validacion["nulos"].sum()
+
+        if nulos == 0:
+            st.success("No se encontraron valores nulos.")
+        else:
+            st.warning(f"Se encontraron {nulos} valores nulos.")
+
+        if validacion["duplicados"] == 0:
+            st.success("No se encontraron registros duplicados.")
+        else:
+            st.warning(
+                f"Se encontraron {validacion['duplicados']} registros duplicados."
+            )
+
+        if validacion["precios_invalidos"] == 0:
+            st.success("Todos los precios son válidos.")
+        else:
+            st.error(
+                f"Hay {validacion['precios_invalidos']} precios menores o iguales a cero."
+            )
+
+        if validacion["cantidades_invalidas"] == 0:
+            st.success("Todas las cantidades son válidas.")
+        else:
+            st.error(
+                f"Hay {validacion['cantidades_invalidas']} cantidades menores o iguales a cero."
+            )
+
+        if validacion["fechas_invalidas"] == 0:
+            st.success("Todas las fechas son válidas.")
+        else:
+            st.error(
+                f"Hay {validacion['fechas_invalidas']} fechas inválidas."
+            )
 
         # KPIs
         kpis = calcular_kpis(datos)
