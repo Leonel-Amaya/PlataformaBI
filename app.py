@@ -3,6 +3,7 @@ from services.cargar_archivo import cargar_excel
 from services.indicadores import calcular_kpis
 from dashboards.graficos import grafico_ventas_producto, grafico_ventas_fecha
 from services.validacion import validar_datos
+from services.filtros import filtrar_por_producto
 
 st.set_page_config(
     page_title="Consultoría BI",
@@ -25,6 +26,19 @@ if archivo is not None:
     datos = cargar_excel(archivo)
 
     if datos is not None:
+
+        productos = sorted(datos["Producto"].unique().tolist())
+        opciones = ["Todos"] + productos
+
+        producto_seleccionado = st.selectbox(
+            "Seleccione un producto",
+            opciones
+        )
+
+        datos = filtrar_por_producto(
+            datos,
+            producto_seleccionado
+        )
 
         # Tabla vista previa
         st.success("Archivo cargado correctamente")
