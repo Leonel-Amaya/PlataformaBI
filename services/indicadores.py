@@ -1,24 +1,40 @@
-import pandas as pd
+"""
+Indicadores principales del negocio.
+"""
+
+from services import esquema
 
 
 def calcular_kpis(df):
     """
-    Calcula indicadores básicos del negocio.
+    Calcula los indicadores sobre los registros utilizables.
+
+    Un registro es utilizable si tiene un Total numérico. Las filas con
+    datos vacíos o mal formateados se excluyen en lugar de romper el cálculo.
     """
 
-    df = df.copy()
+    if esquema.TOTAL in df.columns:
+        validos = df[df[esquema.TOTAL].notna()]
+    else:
+        validos = df.iloc[0:0]
 
-    if "Total" not in df.columns:
-        df["Total"] = df["Cantidad"] * df["Precio"]
+    ventas_totales = float(validos[esquema.TOTAL].sum()) if len(validos) else 0.0
+    numero_ventas = len(validos)
 
-    ventas_totales = df["Total"].sum()
-    numero_ventas = len(df)
-    clientes_unicos = df["Cliente"].nunique()
-    ticket_promedio = ventas_totales / numero_ventas
+    if esquema.CLIENTE in validos.columns:
+        clientes_unicos = int(validos[esquema.CLIENTE].nunique())
+    else:
+        clientes_unicos = 0
+
+    if numero_ventas > 0:
+        ticket_promedio = ventas_totales / numero_ventas
+    else:
+        ticket_promedio = 0.0
 
     return {
         "ventas_totales": ventas_totales,
         "numero_ventas": numero_ventas,
         "clientes_unicos": clientes_unicos,
-        "ticket_promedio": ticket_promedio
+        "ticket_promedio": ticket_promedio,
+        "registros_descartados": len(df) - numero_ventas
     }

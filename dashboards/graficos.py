@@ -1,26 +1,55 @@
+"""
+Gráficos del tablero. Reciben datos ya preparados.
+
+Cuando no hay información suficiente para dibujar, devuelven None
+en lugar de fallar, y la vista muestra el mensaje correspondiente.
+"""
+
+import pandas as pd
 import plotly.express as px
+
+from services import esquema
+
+
+def _datos_utilizables(df, columna):
+    """
+    Deja solo las filas con la columna pedida y el Total disponibles.
+    """
+
+    faltan = [c for c in (columna, esquema.TOTAL) if c not in df.columns]
+
+    if faltan:
+        return None
+
+    datos = df[[columna, esquema.TOTAL]].dropna()
+
+    if datos.empty:
+        return None
+
+    return datos
 
 
 def grafico_ventas_producto(df):
     """
-    Genera gráfico de barras de los productos y sus ventas
+    Genera gráfico de barras de los productos y sus ventas.
     """
 
-    datos = df.copy()
+    datos = _datos_utilizables(df, esquema.PRODUCTO)
 
-    if "Total" not in datos.columns:
-        datos["Total"] = datos["Cantidad"] * datos["Precio"]
+    if datos is None:
+        return None
 
     resumen = (
         datos
-        .groupby("Producto", as_index=False)["Total"]
+        .groupby(esquema.PRODUCTO, as_index=False)[esquema.TOTAL]
         .sum()
+        .sort_values(esquema.TOTAL, ascending=False)
     )
 
     figura = px.bar(
         resumen,
-        x="Producto",
-        y="Total",
+        x=esquema.PRODUCTO,
+        y=esquema.TOTAL,
         title="Ventas por producto",
         text_auto=True
     )
@@ -32,34 +61,38 @@ def grafico_ventas_producto(df):
 
     return figura
 
+
 def grafico_ventas_fecha(df):
     """
-    Genera un grafico de linea de las ventas por fecha
+    Genera un gráfico de línea de las ventas por fecha.
     """
 
-    import pandas as pd
-    import plotly.express as px
+    datos = _datos_utilizables(df, esquema.FECHA)
 
-    datos = df.copy()
+    if datos is None:
+        return None
 
-    # Convertir la fecha
-    datos["Fecha"] = pd.to_datetime(datos["Fecha"])
+    datos[esquema.FECHA] = pd.to_datetime(
+        datos[esquema.FECHA],
+        errors="coerce"
+    )
 
-    # Crear Total si no existe
-    if "Total" not in datos.columns:
-        datos["Total"] = datos["Cantidad"] * datos["Precio"]
+    datos = datos.dropna(subset=[esquema.FECHA])
+
+    if datos.empty:
+        return None
 
     resumen = (
         datos
-        .groupby("Fecha", as_index=False)["Total"]
+        .groupby(esquema.FECHA, as_index=False)[esquema.TOTAL]
         .sum()
-        .sort_values("Fecha")
+        .sort_values(esquema.FECHA)
     )
 
     linea = px.line(
         resumen,
-        x="Fecha",
-        y="Total",
+        x=esquema.FECHA,
+        y=esquema.TOTAL,
         markers=True,
         title="Ventas por fecha"
     )

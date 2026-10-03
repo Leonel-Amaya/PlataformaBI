@@ -1,14 +1,25 @@
 import streamlit as st
-from services.cargar_archivo import cargar_excel
+
+from services import esquema
+from services.cargar_archivo import ErrorDeCarga, cargar_excel
+from services.preparacion import preparar_datos
+from services.validacion import AUSENTE, AVISO, ERROR, OK, validar_datos
+from services.filtros import filtrar_por_producto, opciones_de_producto
 from services.indicadores import calcular_kpis
 from dashboards.graficos import grafico_ventas_producto, grafico_ventas_fecha
-from services.validacion import validar_datos
-from services.filtros import filtrar_por_producto
 
 st.set_page_config(
     page_title="Consultoría BI",
     layout="wide"
 )
+
+# Cómo se muestra cada estado de la validación
+MOSTRAR = {
+    OK: st.success,
+    AVISO: st.warning,
+    ERROR: st.error,
+    AUSENTE: st.error
+}
 
 st.title("Consultoría en Inteligencia de Negocios")
 
@@ -21,103 +32,111 @@ archivo = st.file_uploader(
     type=["xlsx"]
 )
 
-if archivo is not None:
+if archivo is None:
+    st.info(
+        "El archivo debe incluir las columnas: "
+        f"{', '.join(esquema.COLUMNAS_REQUERIDAS)}."
+    )
+    st.stop()
 
-    datos = cargar_excel(archivo)
+# Carga
+try:
+    datos_originales = cargar_excel(archivo)
 
-    if datos is not None:
+except ErrorDeCarga as error:
+    st.error(str(error))
+    st.stop()
 
-        productos = sorted(datos["Producto"].unique().tolist())
-        opciones = ["Todos"] + productos
+st.success("Archivo cargado correctamente")
 
-        producto_seleccionado = st.selectbox(
-            "Seleccione un producto",
-            opciones
+# Vista previa
+st.subheader("Vista previa")
+st.dataframe(datos_originales)
+
+# Validación sobre el archivo completo, antes de filtrar
+st.subheader("Calidad de los datos")
+
+for resultado in validar_datos(datos_originales):
+    MOSTRAR[resultado.estado](f"**{resultado.titulo}:** {resultado.mensaje}")
+
+# Sin las columnas requeridas no hay nada que calcular
+datos = preparar_datos(datos_originales)
+faltantes = esquema.columnas_faltantes(datos)
+
+if faltantes:
+    st.warning(
+        "No se pueden generar indicadores hasta corregir la estructura "
+        "del archivo."
+    )
+    st.stop()
+
+# Filtro
+producto_seleccionado = st.selectbox(
+    "Seleccione un producto",
+    opciones_de_producto(datos)
+)
+
+datos = filtrar_por_producto(datos, producto_seleccionado)
+
+if datos.empty:
+    st.info("No hay registros para la selección actual.")
+    st.stop()
+
+# KPIs
+kpis = calcular_kpis(datos)
+
+st.subheader("Indicadores principales")
+
+if kpis["numero_ventas"] == 0:
+    st.warning(
+        "Ningún registro de la selección tiene Cantidad y Precio válidos, "
+        "por lo que no se pueden calcular los indicadores."
+    )
+
+else:
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric(
+        "Ventas Totales",
+        f"${kpis['ventas_totales']:,.0f}"
+    )
+
+    col2.metric(
+        "Número de Ventas",
+        kpis["numero_ventas"]
+    )
+
+    col3.metric(
+        "Clientes",
+        kpis["clientes_unicos"]
+    )
+
+    col4.metric(
+        "Ticket Promedio",
+        f"${kpis['ticket_promedio']:,.0f}"
+    )
+
+    if kpis["registros_descartados"] > 0:
+        st.caption(
+            f"Se excluyeron {kpis['registros_descartados']} registros "
+            f"por tener datos vacíos o inválidos."
         )
 
-        datos = filtrar_por_producto(
-            datos,
-            producto_seleccionado
-        )
+# Gráficos
+st.subheader("Análisis de ventas")
 
-        # Tabla vista previa
-        st.success("Archivo cargado correctamente")
-        st.subheader("Vista previa")
-        st.dataframe(datos)
+figura = grafico_ventas_producto(datos)
 
-        # Validación
-        validacion = validar_datos(datos)
-        st.subheader("Calidad de los datos")
+if figura is None:
+    st.info("No hay datos suficientes para graficar las ventas por producto.")
+else:
+    st.plotly_chart(figura, width='stretch')
 
-        nulos = validacion["nulos"].sum()
+st.subheader("Comportamiento de las ventas")
 
-        if nulos == 0:
-            st.success("No se encontraron valores nulos.")
-        else:
-            st.warning(f"Se encontraron {nulos} valores nulos.")
+linea = grafico_ventas_fecha(datos)
 
-        if validacion["duplicados"] == 0:
-            st.success("No se encontraron registros duplicados.")
-        else:
-            st.warning(
-                f"Se encontraron {validacion['duplicados']} registros duplicados."
-            )
-
-        if validacion["precios_invalidos"] == 0:
-            st.success("Todos los precios son válidos.")
-        else:
-            st.error(
-                f"Hay {validacion['precios_invalidos']} precios menores o iguales a cero."
-            )
-
-        if validacion["cantidades_invalidas"] == 0:
-            st.success("Todas las cantidades son válidas.")
-        else:
-            st.error(
-                f"Hay {validacion['cantidades_invalidas']} cantidades menores o iguales a cero."
-            )
-
-        if validacion["fechas_invalidas"] == 0:
-            st.success("Todas las fechas son válidas.")
-        else:
-            st.error(
-                f"Hay {validacion['fechas_invalidas']} fechas inválidas."
-            )
-
-        # KPIs
-        kpis = calcular_kpis(datos)
-        st.subheader("Indicadores principales")
-        col1, col2, col3, col4 = st.columns(4)
-
-        col1.metric(
-            "Ventas Totales",
-            f"${kpis['ventas_totales']:,.0f}"
-        )
-
-        col2.metric(
-            "Número de Ventas",
-            kpis["numero_ventas"]
-        )
-
-        col3.metric(
-            "Clientes",
-            kpis["clientes_unicos"]
-        )
-
-        col4.metric(
-            "Ticket Promedio",
-            f"${kpis['ticket_promedio']:,.0f}"
-        )
-
-        # Gráficos
-        st.subheader("Análisis de ventas")
-        figura = grafico_ventas_producto(datos)
-        st.plotly_chart(figura, width='stretch')
-
-        st.subheader("Comportamiento de las ventas")
-        linea = grafico_ventas_fecha(datos)
-        st.plotly_chart(linea, width='stretch')
-
-    else:
-
-        st.error("No fue posible leer el archivo.")
+if linea is None:
+    st.info("No hay datos suficientes para graficar las ventas por fecha.")
+else:
+    st.plotly_chart(linea, width='stretch')
