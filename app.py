@@ -6,7 +6,14 @@ from services.preparacion import preparar_datos
 from services.validacion import AUSENTE, AVISO, ERROR, OK, validar_datos
 from services.filtros import filtrar_por_producto, opciones_de_producto
 from services.indicadores import calcular_kpis
-from dashboards.graficos import grafico_ventas_producto, grafico_ventas_fecha
+from dashboards.graficos import (
+    MEDIDA_UNIDADES,
+    MINIMO_PORCIONES,
+    MEDIDA_VENTAS,
+    grafico_torta_productos,
+    grafico_ventas_fecha,
+    grafico_ventas_producto
+)
 
 st.set_page_config(
     page_title="Consultoría BI",
@@ -14,6 +21,12 @@ st.set_page_config(
 )
 
 # Cómo se muestra cada estado de la validación
+# Cómo se mide el ranking de productos
+MEDIDAS = {
+    "Ventas ($)": MEDIDA_VENTAS,
+    "Unidades": MEDIDA_UNIDADES
+}
+
 MOSTRAR = {
     OK: st.success,
     AVISO: st.warning,
@@ -131,6 +144,24 @@ if figura is None:
     st.info("No hay datos suficientes para graficar las ventas por producto.")
 else:
     st.plotly_chart(figura, width='stretch')
+
+st.subheader("Participación por producto")
+
+medida = st.radio(
+    "Medir los más vendidos por",
+    list(MEDIDAS),
+    horizontal=True
+)
+
+torta = grafico_torta_productos(datos, medida=MEDIDAS[medida])
+
+if torta is None:
+    st.info(
+        "La participación se muestra cuando hay al menos "
+        f"{MINIMO_PORCIONES} productos con valores positivos."
+    )
+else:
+    st.plotly_chart(torta, width='stretch')
 
 st.subheader("Comportamiento de las ventas")
 
